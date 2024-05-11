@@ -2577,6 +2577,7 @@ class VolumeImageViewer {
 
   rotateMap (angle) {
     const view = this[_map].getView()
+    // https://openlayers.org/en/latest/apidoc/module-ol_View-View.html
     // view.adjustRotation(view.getRotation() + (angle * (Math.PI / 180)))
     view.animate({
       rotation: view.getRotation() + (angle * (Math.PI / 180))
