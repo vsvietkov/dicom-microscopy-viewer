@@ -2340,6 +2340,13 @@ class VolumeImageViewer {
         maxPoints: options.maxPoints,
         minPoints: options.minPoints
       },
+      arrow: {
+        type: 'LineString',
+        geometryName: 'Line',
+        freehand: false,
+        maxPoints: options.maxPoints,
+        minPoints: options.minPoints
+      },
       freehandline: {
         type: 'LineString',
         geometryName: 'FreeHandLine',
@@ -2422,6 +2429,17 @@ class VolumeImageViewer {
           this[_affine]
         )
       )
+
+      if (Enums.Marker.Arrow === event.feature.get(Enums.InternalProperties.Marker)) {
+        options.drawEndCallback((value, action) => {
+          switch (action) {
+            case 'save': {
+              event.feature.annotationValue = value
+              this[_annotationManager].onUpdate(event.feature)
+            }
+          }
+        });
+      }
     })
 
     this[_map].addInteraction(this[_interactions].draw)
