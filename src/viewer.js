@@ -2584,6 +2584,21 @@ class VolumeImageViewer {
     })
   }
 
+  flipHorizontal () {
+    const view = this[_map].getView()
+    const resolution = view.getResolution()
+    const rotation = view.getRotation()
+    const center = view.getCenter()
+
+    // const transform = `scale(-1, 1) translate(${center[0] * resolution * 2}px, 0px) rotate(${rotation}rad)`
+    const transform = `scale(-1, 1)`
+    this[_map].getViewport().querySelector('.ol-layers canvas').style.transform += (' ' + transform);
+    // With the method above there comes some problems (the dragPan is inverted horizontally too)
+    // Another way to try out - the projection of the view:
+    // https://stackoverflow.com/questions/63638347/inverting-the-y-axis
+    // However, it seems to not be possible to update the projection of the view on the fly. Investigate.
+  }
+
   /**
    * Deactivate translate interaction.
    *
