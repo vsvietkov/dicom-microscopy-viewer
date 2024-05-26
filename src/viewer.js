@@ -99,6 +99,7 @@ import {
 import Enums from './enums'
 import _AnnotationManager from './annotations/_AnnotationManager'
 import webWorkerManager from './webWorker/webWorkerManager.js'
+import { addCoordinateTransforms, transform } from "ol/proj";  // TODO: Remove if the flip is not possible
 
 function _getClient (clientMapping, sopClassUID) {
   if (clientMapping[sopClassUID] == null) {
@@ -707,6 +708,7 @@ const _options = Symbol('options')
 const _overlays = Symbol('overlays')
 const _overviewMap = Symbol('overviewMap')
 const _projection = Symbol('projection')
+const _mirroredProjection = Symbol('projection')  // TODO: Remove if the flip is not possible
 const _pyramid = Symbol('pyramid')
 const _segments = Symbol('segments')
 const _rotation = Symbol('rotation')
@@ -995,6 +997,34 @@ class VolumeImageViewer {
         return pixelRes * spacing / 10 ** 3
       }
     })
+
+    this[_mirroredProjection] = new Projection({ // TODO: Remove if the flip is not possible
+      code: 'DICOM_MIRRORED',
+      units: 'm',
+      global: true,
+      extent: this[_pyramid].extent, // TODO: How to mirror it?
+      getPointResolution: (pixelRes, point) => {
+        /*
+         * DICOM Pixel Spacing has millimeter unit while the projection has
+         * meter unit.
+         */
+        const spacing = getPixelSpacing(
+          this[_pyramid].metadata[this[_pyramid].metadata.length - 1]
+        )[0]
+        return pixelRes * spacing / 10 ** 3
+      }
+    })
+
+    addCoordinateTransforms(  // TODO: Remove if the flip is not possible
+      this[_projection],
+      this[_mirroredProjection],
+      function (coordinate) {
+        return [coordinate[0], -coordinate[1]];
+      },
+      function (coordinate) {
+        return [coordinate[0], -coordinate[1]];
+      }
+    )
 
     /*
      * We need to specify the tile grid, since DICOM allows tiles to
@@ -2586,17 +2616,25 @@ class VolumeImageViewer {
 
   flipHorizontal () {
     const view = this[_map].getView()
-    const resolution = view.getResolution()
-    const rotation = view.getRotation()
-    const center = view.getCenter()
+    const center = view.getCenter();
+    const zoom = view.getZoom();
 
-    // const transform = `scale(-1, 1) translate(${center[0] * resolution * 2}px, 0px) rotate(${rotation}rad)`
-    const transform = `scale(-1, 1)`
-    this[_map].getViewport().querySelector('.ol-layers canvas').style.transform += (' ' + transform);
-    // With the method above there comes some problems (the dragPan is inverted horizontally too)
-    // Another way to try out - the projection of the view:
+    // Set the new view with the mirrored projection
+    const newView = new View({
+      center: transform(center, this[_projection], this[_mirroredProjection]),
+      projection: this[_mirroredProjection],
+      zoom: zoom,
+      rotation: this[_rotation],
+      constrainOnlyCenter: false,
+      smoothResolutionConstraint: true,
+      showFullExtent: true,
+      extent: this[_mirroredProjection].extent
+    })
+
+    this[_map].setView(newView);
+
     // https://stackoverflow.com/questions/63638347/inverting-the-y-axis
-    // However, it seems to not be possible to update the projection of the view on the fly. Investigate.
+    // However, it seems to not be possible or just overcomplicated to update the projection of the view on the fly with our case. Investigate.
   }
 
   /**
