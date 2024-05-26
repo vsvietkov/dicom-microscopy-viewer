@@ -688,6 +688,11 @@ function _getColorPaletteStyleForPointLayer ({
   return { color: expression }
 }
 
+const _brightness = Symbol('brightness')
+const _wlMouseLeaveListener = Symbol('wlMouseLeaveListener')
+const _wlMouseMoveListener = Symbol('wlMouseMoveListener')
+const _wlMouseUpListener = Symbol('wlMouseUpListener')
+const _wlMouseDownListener = Symbol('wlMouseDownListener')
 const _affine = Symbol.for('affine')
 const _affineInverse = Symbol('affineInverse')
 const _annotationManager = Symbol('annotationManager')
@@ -756,6 +761,8 @@ class VolumeImageViewer {
    */
   constructor (options) {
     this[_options] = options
+
+    this[_brightness] = 1
 
     this[_clients] = {}
     if (this[_options].client) {
@@ -1525,6 +1532,7 @@ class VolumeImageViewer {
       translate: undefined,
       modify: undefined,
       snap: undefined,
+      windowLevel: undefined,
       dragPan: this[_map].getInteractions().getArray().find((i) => {
         return i instanceof DragPan
       })
@@ -2780,6 +2788,70 @@ class VolumeImageViewer {
     if (this[_interactions].dragPan) {
       this[_map].removeInteraction(this[_interactions].dragPan)
       this[_interactions].dragPan = undefined
+    }
+  }
+
+  /**
+   * Activate drag pan interaction.
+   *
+   * @param {Object} options - Options.
+   */
+  activateWindowLevelInteraction (options = {}) {
+    this.deactivateWindowLevelInteraction()
+
+    console.info('activate "window level" interaction')
+
+    let isMouseDown = false;
+    let startY = 0;
+    let newBrightness = this[_brightness];
+
+    this[_wlMouseLeaveListener] = () => {
+      isMouseDown = false
+      this[_brightness] = newBrightness
+    }
+
+    this[_wlMouseUpListener] = () => {
+      isMouseDown = false
+      this[_brightness] = newBrightness
+    }
+
+    this[_wlMouseDownListener] = (event) => {
+      isMouseDown = true;
+      startY = event.clientY;
+    }
+
+    this[_wlMouseMoveListener] = (event) => {
+      if (isMouseDown) {
+        const deltaY = event.clientY - startY
+        // Change brightness by 0.01 for each pixel moved
+        const brightnessChange = deltaY * 0.01
+        // Limit the min value to 0 (black screen) and max value to 6 (white screen)
+        // TODO: Maybe do not limit? Not enough test files to check if it is necessary
+        newBrightness = Math.min(Math.max(this[_brightness] + brightnessChange, 0), 6)
+        this[_map].getTargetElement().style.filter = `brightness(${newBrightness})`
+      }
+    }
+
+    this[_map].getTargetElement().addEventListener('mouseleave', this[_wlMouseLeaveListener])
+    this[_map].getTargetElement().addEventListener('mouseup', this[_wlMouseUpListener])
+    this[_map].getTargetElement().addEventListener('mousedown', this[_wlMouseDownListener])
+    this[_map].getTargetElement().addEventListener('mousemove', this[_wlMouseMoveListener])
+    this[_interactions].windowLevel = true
+  }
+
+  /**
+   * Deactivate window level interaction.
+   */
+  deactivateWindowLevelInteraction () {
+    console.info('deactivate "window level" interaction')
+    if (this[_interactions].windowLevel) {
+      this[_map].removeInteraction(this[_interactions].windowLevel)
+      this[_interactions].windowLevel = undefined
+
+      this[_map].getTargetElement().removeEventListener('mouseleave', this[_wlMouseLeaveListener])
+      this[_map].getTargetElement().removeEventListener('mouseup', this[_wlMouseUpListener])
+      this[_map].getTargetElement().removeEventListener('mousedown', this[_wlMouseDownListener])
+      this[_map].getTargetElement().removeEventListener('mousemove', this[_wlMouseMoveListener])
     }
   }
 
