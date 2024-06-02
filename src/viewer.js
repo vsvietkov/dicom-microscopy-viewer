@@ -2804,6 +2804,7 @@ class VolumeImageViewer {
     let isMouseDown = false;
     let startY = 0;
     let newBrightness = this[_brightness];
+    let canvas = this[_map].getViewport().querySelector('.ol-layers canvas');
 
     this[_wlMouseLeaveListener] = () => {
       isMouseDown = false
@@ -2828,7 +2829,7 @@ class VolumeImageViewer {
         // Limit the min value to 0 (black screen) and max value to 6 (white screen)
         // TODO: Maybe do not limit? Not enough test files to check if it is necessary
         newBrightness = Math.min(Math.max(this[_brightness] + brightnessChange, 0), 6)
-        this[_map].getTargetElement().style.filter = `brightness(${newBrightness})`
+        canvas.style.filter = `brightness(${newBrightness})`
       }
     }
 
