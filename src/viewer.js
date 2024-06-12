@@ -1336,88 +1336,88 @@ class VolumeImageViewer {
       layers.push(tileDebugLayer)
     }
 
-    if (Math.max(...this[_pyramid].gridSizes[0]) <= 10) {
-      const center = getCenter(this[_projection].getExtent())
-      this[_overviewMap] = new OverviewMap({
-        view: new View({
-          projection: this[_projection],
-          rotation: this[_rotation],
-          constrainOnlyCenter: true,
-          resolutions: [this[_tileGrid].getResolution(0)],
-          extent: center.concat(center),
-          showFullExtent: true
-        }),
-        layers: overviewLayers,
-        collapsed: false,
-        collapsible: true,
-        rotateWithView: true
-      })
-      this[_updateOverviewMapSize] = () => {
-        const degrees = this[_rotation] / Math.PI * 180
-        const isRotated = !(
-          Math.abs(degrees - 180) < 0.01 || Math.abs(degrees - 0) < 0.01
-        )
-        const viewport = this[_map].getViewport()
-        const viewportHeight = viewport.clientHeight
-        const viewportWidth = viewport.clientWidth
-        const viewportHeightFraction = 0.45
-        const viewportWidthFraction = 0.25
-        const targetHeight = viewportHeight * viewportHeightFraction
-        const targetWidth = viewportWidth * viewportWidthFraction
+    // if (Math.max(...this[_pyramid].gridSizes[0]) <= 12) { TODO: Why would they need this? UPD: Found out its to prevent the too much overlap of overview map and main map
+    const center = getCenter(this[_projection].getExtent())
+    this[_overviewMap] = new OverviewMap({
+      view: new View({
+        projection: this[_projection],
+        rotation: this[_rotation],
+        constrainOnlyCenter: true,
+        resolutions: [this[_tileGrid].getResolution(0)],
+        extent: center.concat(center),
+        showFullExtent: true
+      }),
+      layers: overviewLayers,
+      collapsed: false,
+      collapsible: true,
+      rotateWithView: true
+    })
+    this[_updateOverviewMapSize] = () => {
+      const degrees = this[_rotation] / Math.PI * 180
+      const isRotated = !(
+        Math.abs(degrees - 180) < 0.01 || Math.abs(degrees - 0) < 0.01
+      )
+      const viewport = this[_map].getViewport()
+      const viewportHeight = viewport.clientHeight
+      const viewportWidth = viewport.clientWidth
+      const viewportHeightFraction = 0.45
+      const viewportWidthFraction = 0.25
+      const targetHeight = viewportHeight * viewportHeightFraction
+      const targetWidth = viewportWidth * viewportWidthFraction
 
-        const extent = this[_projection].getExtent()
-        let height
-        let width
-        let resolution
-        if (isRotated) {
-          if (targetWidth > targetHeight) {
-            height = targetHeight
-            width = (height * getHeight(extent)) / getWidth(extent)
-            resolution = getWidth(extent) / height
-          } else {
-            width = targetWidth
-            height = (width * getWidth(extent)) / getHeight(extent)
-            resolution = getHeight(extent) / width
-          }
+      const extent = this[_projection].getExtent()
+      let height
+      let width
+      let resolution
+      if (isRotated) {
+        if (targetWidth > targetHeight) {
+          height = targetHeight
+          width = (height * getHeight(extent)) / getWidth(extent)
+          resolution = getWidth(extent) / height
         } else {
-          if (targetHeight > targetWidth) {
-            width = targetWidth
-            height = (width * getHeight(extent)) / getWidth(extent)
-            resolution = getWidth(extent) / width
-          } else {
-            height = targetHeight
-            width = (height * getWidth(extent)) / getHeight(extent)
-            resolution = getHeight(extent) / height
-          }
+          width = targetWidth
+          height = (width * getWidth(extent)) / getHeight(extent)
+          resolution = getHeight(extent) / width
         }
-        const center = getCenter(extent)
-        const overviewView = new View({
-          projection: this[_projection],
-          rotation: this[_rotation],
-          constrainOnlyCenter: true,
-          minResolution: resolution,
-          maxResolution: resolution,
-          extent: center.concat(center),
-          showFullExtent: true
-        })
-        const map = this[_overviewMap].getOverviewMap()
-
-        const overviewElement = this[_overviewMap].element
-        const overviewmapElement = Object.values(overviewElement.children).find(
-          c => c.className === 'ol-overviewmap-map'
-        )
-        // TODO: color "ol-overviewmap-map-box" using primary color
-        overviewmapElement.style.width = `${width}px`
-        overviewmapElement.style.height = `${height}px`
-        map.updateSize()
-        map.setView(overviewView)
-        this[_map].removeControl(this[_overviewMap])
-        this[_map].addControl(this[_overviewMap])
+      } else {
+        if (targetHeight > targetWidth) {
+          width = targetWidth
+          height = (width * getHeight(extent)) / getWidth(extent)
+          resolution = getWidth(extent) / width
+        } else {
+          height = targetHeight
+          width = (height * getWidth(extent)) / getHeight(extent)
+          resolution = getHeight(extent) / height
+        }
       }
-    } else {
-      this[_overviewMap] = null
-      this[_updateOverviewMapSize] = () => {}
+      const center = getCenter(extent)
+      const overviewView = new View({
+        projection: this[_projection],
+        rotation: this[_rotation],
+        constrainOnlyCenter: true,
+        minResolution: resolution,
+        maxResolution: resolution,
+        extent: center.concat(center),
+        showFullExtent: true
+      })
+      const map = this[_overviewMap].getOverviewMap()
+
+      const overviewElement = this[_overviewMap].element
+      const overviewmapElement = Object.values(overviewElement.children).find(
+        c => c.className === 'ol-overviewmap-map'
+      )
+      // TODO: color "ol-overviewmap-map-box" using primary color
+      overviewmapElement.style.width = `${width}px`
+      overviewmapElement.style.height = `${height}px`
+      map.updateSize()
+      map.setView(overviewView)
+      this[_map].removeControl(this[_overviewMap])
+      this[_map].addControl(this[_overviewMap])
     }
+    // } else {
+    //   this[_overviewMap] = null
+    //   this[_updateOverviewMapSize] = () => {}
+    // }
 
     this[_drawingSource] = new VectorSource({
       tileGrid: this[_tileGrid],
