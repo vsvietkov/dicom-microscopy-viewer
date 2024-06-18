@@ -148,7 +148,7 @@ const ArrowMarker = ({ map, markupManager }) => {
         )
 
         /** Update arrow icon position on feature geometry change */
-        feature.getGeometry().on(Enums._FeatureGeometryEvents.CHANGE, () => {
+        feature.getGeometry().on(Enums.FeatureGeometryEvents.CHANGE, () => {
           _applyStyles(feature, map)
         })
       }
