@@ -2450,6 +2450,10 @@ class VolumeImageViewer {
         this[_pyramid].metadata,
         this[_affine]
       )
+
+      if (Enums.Marker.Arrow === event.feature.get(Enums.InternalProperties.Marker)) {
+        this[_annotationManager].setMarkupVisibility(event.feature.getId(), false)
+      }
     })
 
     this[_interactions].draw.on(Enums.InteractionEvents.DRAW_ABORT, (event) => {
@@ -2473,7 +2477,9 @@ class VolumeImageViewer {
           switch (action) {
             case 'save': {
               event.feature.annotationValue = value
+              this[_annotationManager].setMarkupVisibility(event.feature.getId(), true)
               this[_annotationManager].onUpdate(event.feature)
+              break;
             }
           }
         });
