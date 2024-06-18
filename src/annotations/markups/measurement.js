@@ -78,7 +78,15 @@ const MeasurementMarkup = ({ map, pyramid, affine, markupManager }) => {
         })
       }
     },
-    onUpdate: (feature) => {},
+    onUpdate: (feature) => {
+      const id = feature.getId()
+      const markup = markupManager.get(id)
+      markupManager.update({
+        feature,
+        value: feature.annotationValue,
+        coordinate: markup.overlay.getPosition()
+      })
+    },
     onDrawEnd: ({ feature }) => {},
     onDrawAbort: ({ feature }) => {}
   }
