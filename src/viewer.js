@@ -2476,6 +2476,11 @@ class VolumeImageViewer {
               this[_annotationManager].onUpdate(event.feature)
               break;
             }
+            case 'cancel': {
+              this.removeROI(event.feature.getId())
+              publish(container, EVENT.ROI_REMOVED, this._getROIFromFeature(event.feature, this[_pyramid].metadata, this[_affine]));
+              break;
+            }
           }
         });
       }
