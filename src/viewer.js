@@ -285,7 +285,7 @@ function _getOpenLayersStyle (styleOptions) {
  * @private
  */
 function _addROIPropertiesToFeature (feature, properties, optSilent) {
-  const { Label, Measurements, Evaluations, Marker } = Enums.InternalProperties
+  const { Label, Measurements, Evaluations, Marker, Markup } = Enums.InternalProperties
 
   if (properties[Label]) {
     feature.set(Label, properties[Label], optSilent)
@@ -301,6 +301,10 @@ function _addROIPropertiesToFeature (feature, properties, optSilent) {
 
   if (properties[Marker]) {
     feature.set(Marker, properties[Marker], optSilent)
+  }
+
+  if (properties[Markup]) {
+    feature.set(Markup, properties[Markup], optSilent)
   }
 }
 
