@@ -1340,7 +1340,7 @@ class VolumeImageViewer {
       layers.push(tileDebugLayer)
     }
 
-    // if (Math.max(...this[_pyramid].gridSizes[0]) <= 12) { TODO: Why would they need this? UPD: Found out its to prevent the too much overlap of overview map and main map
+    // if (Math.max(...this[_pyramid].gridSizes[0]) <= 10) { TODO: They did this to prevent the too much overlap of overview map and main map. Check with very large files
     const center = getCenter(this[_projection].getExtent())
     this[_overviewMap] = new OverviewMap({
       view: new View({
@@ -1374,7 +1374,7 @@ class VolumeImageViewer {
       let width
       let resolution
       if (isRotated) {
-        if (targetWidth > targetHeight) {
+        if (getWidth(extent) > getHeight(extent)) {
           height = targetHeight
           width = (height * getHeight(extent)) / getWidth(extent)
           resolution = getWidth(extent) / height
@@ -1384,7 +1384,7 @@ class VolumeImageViewer {
           resolution = getHeight(extent) / width
         }
       } else {
-        if (targetHeight > targetWidth) {
+        if (getHeight(extent) <= getWidth(extent)) {
           width = targetWidth
           height = (width * getHeight(extent)) / getWidth(extent)
           resolution = getWidth(extent) / width
@@ -2626,10 +2626,13 @@ class VolumeImageViewer {
   rotateMap (angle) {
     const view = this[_map].getView()
     // https://openlayers.org/en/latest/apidoc/module-ol_View-View.html
-    // view.adjustRotation(view.getRotation() + (angle * (Math.PI / 180)))
+    this[_rotation] = view.getRotation() + (angle * (Math.PI / 180))
+    this[_updateOverviewMapSize]()
     view.animate({
-      rotation: view.getRotation() + (angle * (Math.PI / 180))
+      rotation: this[_rotation]
     })
+    // TODO: Instead of animation, set rotation at once, because user can scale during animation and break rotation
+    // view.adjustRotation(view.getRotation() + (angle * (Math.PI / 180)))
   }
 
   flipHorizontal () {
