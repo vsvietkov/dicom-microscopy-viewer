@@ -2635,29 +2635,6 @@ class VolumeImageViewer {
     // view.adjustRotation(view.getRotation() + (angle * (Math.PI / 180)))
   }
 
-  flipHorizontal () {
-    const view = this[_map].getView()
-    const center = view.getCenter();
-    const zoom = view.getZoom();
-
-    // Set the new view with the mirrored projection
-    const newView = new View({
-      center: transform(center, this[_projection], this[_mirroredProjection]),
-      projection: this[_mirroredProjection],
-      zoom: zoom,
-      rotation: this[_rotation],
-      constrainOnlyCenter: false,
-      smoothResolutionConstraint: true,
-      showFullExtent: true,
-      extent: this[_mirroredProjection].extent
-    })
-
-    this[_map].setView(newView);
-
-    // https://stackoverflow.com/questions/63638347/inverting-the-y-axis
-    // However, it seems to not be possible or just overcomplicated to update the projection of the view on the fly with our case. Investigate.
-  }
-
   /**
    * Deactivate translate interaction.
    *
