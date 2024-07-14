@@ -45,7 +45,8 @@ const _applyStyles = (feature, map) => {
       const view = map.getView()
       const currentZoomLevel = view.getZoom()
       const zoomResolution = view.getResolutionForZoom(currentZoomLevel)
-      const newScale = zoomResolution / resolution
+      const newScale = zoomResolution / resolution // If there is only one instance in metadata - this variable will be 0
+      // TODO: Set newScale default to 0.5, for example? In order to fix the hidden arrow
 
       const pointIcon = `
           <svg version="1.1" width="70px" height="70px" viewBox="0 -7.101 760.428 415.101" style="enable-background:new 0 0 408 408;" xmlns="http://www.w3.org/2000/svg">
