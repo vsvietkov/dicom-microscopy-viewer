@@ -99,6 +99,7 @@ import {
 import Enums from './enums'
 import _AnnotationManager from './annotations/_AnnotationManager'
 import webWorkerManager from './webWorker/webWorkerManager.js'
+import { addCoordinateTransforms, transform } from "ol/proj";  // TODO: Remove if the flip is not possible
 
 function _getClient (clientMapping, sopClassUID) {
   if (clientMapping[sopClassUID] == null) {
@@ -284,7 +285,7 @@ function _getOpenLayersStyle (styleOptions) {
  * @private
  */
 function _addROIPropertiesToFeature (feature, properties, optSilent) {
-  const { Label, Measurements, Evaluations, Marker } = Enums.InternalProperties
+  const { Label, Measurements, Evaluations, Marker, Markup } = Enums.InternalProperties
 
   if (properties[Label]) {
     feature.set(Label, properties[Label], optSilent)
@@ -300,6 +301,10 @@ function _addROIPropertiesToFeature (feature, properties, optSilent) {
 
   if (properties[Marker]) {
     feature.set(Marker, properties[Marker], optSilent)
+  }
+
+  if (properties[Markup]) {
+    feature.set(Markup, properties[Markup], optSilent)
   }
 }
 
@@ -687,6 +692,11 @@ function _getColorPaletteStyleForPointLayer ({
   return { color: expression }
 }
 
+const _brightness = Symbol('brightness')
+const _wlMouseLeaveListener = Symbol('wlMouseLeaveListener')
+const _wlMouseMoveListener = Symbol('wlMouseMoveListener')
+const _wlMouseUpListener = Symbol('wlMouseUpListener')
+const _wlMouseDownListener = Symbol('wlMouseDownListener')
 const _affine = Symbol.for('affine')
 const _affineInverse = Symbol('affineInverse')
 const _annotationManager = Symbol('annotationManager')
@@ -707,6 +717,7 @@ const _options = Symbol('options')
 const _overlays = Symbol('overlays')
 const _overviewMap = Symbol('overviewMap')
 const _projection = Symbol('projection')
+const _mirroredProjection = Symbol('projection')  // TODO: Remove if the flip is not possible
 const _pyramid = Symbol('pyramid')
 const _segments = Symbol('segments')
 const _rotation = Symbol('rotation')
@@ -754,6 +765,8 @@ class VolumeImageViewer {
    */
   constructor (options) {
     this[_options] = options
+
+    this[_brightness] = 1
 
     this[_clients] = {}
     if (this[_options].client) {
@@ -995,6 +1008,34 @@ class VolumeImageViewer {
         return pixelRes * spacing / 10 ** 3
       }
     })
+
+    this[_mirroredProjection] = new Projection({ // TODO: Remove if the flip is not possible
+      code: 'DICOM_MIRRORED',
+      units: 'm',
+      global: true,
+      extent: this[_pyramid].extent, // TODO: How to mirror it?
+      getPointResolution: (pixelRes, point) => {
+        /*
+         * DICOM Pixel Spacing has millimeter unit while the projection has
+         * meter unit.
+         */
+        const spacing = getPixelSpacing(
+          this[_pyramid].metadata[this[_pyramid].metadata.length - 1]
+        )[0]
+        return pixelRes * spacing / 10 ** 3
+      }
+    })
+
+    addCoordinateTransforms(  // TODO: Remove if the flip is not possible
+      this[_projection],
+      this[_mirroredProjection],
+      function (coordinate) {
+        return [coordinate[0], -coordinate[1]];
+      },
+      function (coordinate) {
+        return [coordinate[0], -coordinate[1]];
+      }
+    )
 
     /*
      * We need to specify the tile grid, since DICOM allows tiles to
@@ -1299,88 +1340,88 @@ class VolumeImageViewer {
       layers.push(tileDebugLayer)
     }
 
-    if (Math.max(...this[_pyramid].gridSizes[0]) <= 10) {
-      const center = getCenter(this[_projection].getExtent())
-      this[_overviewMap] = new OverviewMap({
-        view: new View({
-          projection: this[_projection],
-          rotation: this[_rotation],
-          constrainOnlyCenter: true,
-          resolutions: [this[_tileGrid].getResolution(0)],
-          extent: center.concat(center),
-          showFullExtent: true
-        }),
-        layers: overviewLayers,
-        collapsed: false,
-        collapsible: true,
-        rotateWithView: true
-      })
-      this[_updateOverviewMapSize] = () => {
-        const degrees = this[_rotation] / Math.PI * 180
-        const isRotated = !(
-          Math.abs(degrees - 180) < 0.01 || Math.abs(degrees - 0) < 0.01
-        )
-        const viewport = this[_map].getViewport()
-        const viewportHeight = viewport.clientHeight
-        const viewportWidth = viewport.clientWidth
-        const viewportHeightFraction = 0.45
-        const viewportWidthFraction = 0.25
-        const targetHeight = viewportHeight * viewportHeightFraction
-        const targetWidth = viewportWidth * viewportWidthFraction
+    // if (Math.max(...this[_pyramid].gridSizes[0]) <= 10) { TODO: They did this to prevent the too much overlap of overview map and main map. Check with very large files
+    const center = getCenter(this[_projection].getExtent())
+    this[_overviewMap] = new OverviewMap({
+      view: new View({
+        projection: this[_projection],
+        rotation: this[_rotation],
+        constrainOnlyCenter: true,
+        resolutions: [this[_tileGrid].getResolution(0)],
+        extent: center.concat(center),
+        showFullExtent: true
+      }),
+      layers: overviewLayers,
+      collapsed: false,
+      collapsible: true,
+      rotateWithView: true
+    })
+    this[_updateOverviewMapSize] = () => {
+      const degrees = this[_rotation] / Math.PI * 180
+      const isRotated = !(
+        Math.abs(degrees - 180) < 0.01 || Math.abs(degrees - 0) < 0.01
+      )
+      const viewport = this[_map].getViewport()
+      const viewportHeight = viewport.clientHeight
+      const viewportWidth = viewport.clientWidth
+      const viewportHeightFraction = 0.45
+      const viewportWidthFraction = 0.25
+      const targetHeight = viewportHeight * viewportHeightFraction
+      const targetWidth = viewportWidth * viewportWidthFraction
 
-        const extent = this[_projection].getExtent()
-        let height
-        let width
-        let resolution
-        if (isRotated) {
-          if (targetWidth > targetHeight) {
-            height = targetHeight
-            width = (height * getHeight(extent)) / getWidth(extent)
-            resolution = getWidth(extent) / height
-          } else {
-            width = targetWidth
-            height = (width * getWidth(extent)) / getHeight(extent)
-            resolution = getHeight(extent) / width
-          }
+      const extent = this[_projection].getExtent()
+      let height
+      let width
+      let resolution
+      if (isRotated) {
+        if (getWidth(extent) > getHeight(extent)) {
+          height = targetHeight
+          width = (height * getHeight(extent)) / getWidth(extent)
+          resolution = getWidth(extent) / height
         } else {
-          if (targetHeight > targetWidth) {
-            width = targetWidth
-            height = (width * getHeight(extent)) / getWidth(extent)
-            resolution = getWidth(extent) / width
-          } else {
-            height = targetHeight
-            width = (height * getWidth(extent)) / getHeight(extent)
-            resolution = getHeight(extent) / height
-          }
+          width = targetWidth
+          height = (width * getWidth(extent)) / getHeight(extent)
+          resolution = getHeight(extent) / width
         }
-        const center = getCenter(extent)
-        const overviewView = new View({
-          projection: this[_projection],
-          rotation: this[_rotation],
-          constrainOnlyCenter: true,
-          minResolution: resolution,
-          maxResolution: resolution,
-          extent: center.concat(center),
-          showFullExtent: true
-        })
-        const map = this[_overviewMap].getOverviewMap()
-
-        const overviewElement = this[_overviewMap].element
-        const overviewmapElement = Object.values(overviewElement.children).find(
-          c => c.className === 'ol-overviewmap-map'
-        )
-        // TODO: color "ol-overviewmap-map-box" using primary color
-        overviewmapElement.style.width = `${width}px`
-        overviewmapElement.style.height = `${height}px`
-        map.updateSize()
-        map.setView(overviewView)
-        this[_map].removeControl(this[_overviewMap])
-        this[_map].addControl(this[_overviewMap])
+      } else {
+        if (getHeight(extent) <= getWidth(extent)) {
+          width = targetWidth
+          height = (width * getHeight(extent)) / getWidth(extent)
+          resolution = getWidth(extent) / width
+        } else {
+          height = targetHeight
+          width = (height * getWidth(extent)) / getHeight(extent)
+          resolution = getHeight(extent) / height
+        }
       }
-    } else {
-      this[_overviewMap] = null
-      this[_updateOverviewMapSize] = () => {}
+      const center = getCenter(extent)
+      const overviewView = new View({
+        projection: this[_projection],
+        rotation: this[_rotation],
+        constrainOnlyCenter: true,
+        minResolution: resolution,
+        maxResolution: resolution,
+        extent: center.concat(center),
+        showFullExtent: true
+      })
+      const map = this[_overviewMap].getOverviewMap()
+
+      const overviewElement = this[_overviewMap].element
+      const overviewmapElement = Object.values(overviewElement.children).find(
+        c => c.className === 'ol-overviewmap-map'
+      )
+      // TODO: color "ol-overviewmap-map-box" using primary color
+      overviewmapElement.style.width = `${width}px`
+      overviewmapElement.style.height = `${height}px`
+      map.updateSize()
+      map.setView(overviewView)
+      this[_map].removeControl(this[_overviewMap])
+      this[_map].addControl(this[_overviewMap])
     }
+    // } else {
+    //   this[_overviewMap] = null
+    //   this[_updateOverviewMapSize] = () => {}
+    // }
 
     this[_drawingSource] = new VectorSource({
       tileGrid: this[_tileGrid],
@@ -1495,6 +1536,7 @@ class VolumeImageViewer {
       translate: undefined,
       modify: undefined,
       snap: undefined,
+      windowLevel: undefined,
       dragPan: this[_map].getInteractions().getArray().find((i) => {
         return i instanceof DragPan
       })
@@ -2340,6 +2382,13 @@ class VolumeImageViewer {
         maxPoints: options.maxPoints,
         minPoints: options.minPoints
       },
+      arrow: {
+        type: 'LineString',
+        geometryName: 'Line',
+        freehand: false,
+        maxPoints: options.maxPoints,
+        minPoints: options.minPoints
+      },
       freehandline: {
         type: 'LineString',
         geometryName: 'FreeHandLine',
@@ -2422,6 +2471,23 @@ class VolumeImageViewer {
           this[_affine]
         )
       )
+
+      if (Enums.Marker.Arrow === event.feature.get(Enums.InternalProperties.Marker)) {
+        options.drawEndCallback((value, action) => {
+          switch (action) {
+            case 'save': {
+              event.feature.set(Enums.InternalProperties.Label, value)
+              this[_annotationManager].onUpdate(event.feature)
+              break;
+            }
+            case 'cancel': {
+              this.removeROI(event.feature.getId())
+              publish(container, EVENT.ROI_REMOVED, this._getROIFromFeature(event.feature, this[_pyramid].metadata, this[_affine]));
+              break;
+            }
+          }
+        });
+      }
     })
 
     this[_map].addInteraction(this[_interactions].draw)
@@ -2555,6 +2621,18 @@ class VolumeImageViewer {
         view.fit(projection.getExtent(), { size: map.getSize() })
       }
     }
+  }
+
+  rotateMap (angle) {
+    const view = this[_map].getView()
+    // https://openlayers.org/en/latest/apidoc/module-ol_View-View.html
+    this[_rotation] = view.getRotation() + (angle * (Math.PI / 180))
+    this[_updateOverviewMapSize]()
+    view.animate({
+      rotation: this[_rotation]
+    })
+    // TODO: Instead of animation, set rotation at once, because user can scale during animation and break rotation
+    // view.adjustRotation(view.getRotation() + (angle * (Math.PI / 180)))
   }
 
   /**
@@ -2700,6 +2778,71 @@ class VolumeImageViewer {
     if (this[_interactions].dragPan) {
       this[_map].removeInteraction(this[_interactions].dragPan)
       this[_interactions].dragPan = undefined
+    }
+  }
+
+  /**
+   * Activate drag pan interaction.
+   *
+   * @param {Object} options - Options.
+   */
+  activateWindowLevelInteraction (options = {}) {
+    this.deactivateWindowLevelInteraction()
+
+    console.info('activate "window level" interaction')
+
+    let isMouseDown = false;
+    let startY = 0;
+    let newBrightness = this[_brightness];
+    let canvas = this[_map].getViewport().querySelector('.ol-layers canvas');
+
+    this[_wlMouseLeaveListener] = () => {
+      isMouseDown = false
+      this[_brightness] = newBrightness
+    }
+
+    this[_wlMouseUpListener] = () => {
+      isMouseDown = false
+      this[_brightness] = newBrightness
+    }
+
+    this[_wlMouseDownListener] = (event) => {
+      isMouseDown = true;
+      startY = event.clientY;
+    }
+
+    this[_wlMouseMoveListener] = (event) => {
+      if (isMouseDown) {
+        const deltaY = event.clientY - startY
+        // Change brightness by 0.01 for each pixel moved
+        const brightnessChange = deltaY * 0.01
+        // Limit the min value to 0 (black screen) and max value to 6 (white screen)
+        // TODO: Maybe do not limit? Not enough test files to check if it is necessary
+        newBrightness = Math.min(Math.max(this[_brightness] + brightnessChange, 0), 6)
+        canvas.style.filter = `brightness(${newBrightness})`
+      }
+    }
+
+    this[_map].getTargetElement().addEventListener('mouseleave', this[_wlMouseLeaveListener])
+    this[_map].getTargetElement().addEventListener('mouseup', this[_wlMouseUpListener])
+    this[_map].getTargetElement().addEventListener('mousedown', this[_wlMouseDownListener])
+    this[_map].getTargetElement().addEventListener('mousemove', this[_wlMouseMoveListener])
+    this[_interactions].windowLevel = true
+  }
+
+  /**
+   * Deactivate window level interaction.
+   */
+  deactivateWindowLevelInteraction () {
+    console.info('deactivate "window level" interaction')
+    if (this[_interactions].windowLevel) {
+      this[_map].removeInteraction(this[_interactions].windowLevel)
+      this[_interactions].windowLevel = undefined
+
+      this[_map].getTargetElement().removeEventListener('mouseleave', this[_wlMouseLeaveListener])
+      this[_map].getTargetElement().removeEventListener('mouseup', this[_wlMouseUpListener])
+      this[_map].getTargetElement().removeEventListener('mousedown', this[_wlMouseDownListener])
+      this[_map].getTargetElement().removeEventListener('mousemove', this[_wlMouseMoveListener])
     }
   }
 

@@ -3,7 +3,7 @@ const merge = require('./merge')
 const rootPath = process.cwd()
 const baseConfig = require('./webpack-base')
 const TerserPlugin = require('terser-webpack-plugin')
-const outputPath = path.join(rootPath, 'dist', 'dynamic-import', 'dicom-microscopy-viewer')
+const outputPath = path.join(rootPath, 'dist', 'dynamic-import')
 
 const prodConfig = {
   mode: 'production',
@@ -12,12 +12,11 @@ const prodConfig = {
   },
   output: {
     path: outputPath,
-    library: {
-      name: 'dicomMicroscopyViewer',
-      type: 'window',
-    },
-    filename: '[name].min.js',
-    publicPath: '/dicom-microscopy-viewer/',
+    // FYI: returned the old content as in the latest version of the library
+    // it adds a subfolder and the Viewer project is not able to work with it
+    libraryTarget: 'umd',
+    globalObject: 'this',
+    filename: '[name].min.js'
   },
   optimization: {
     // minimize: false,
